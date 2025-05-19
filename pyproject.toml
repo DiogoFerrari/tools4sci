@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tools4sci"
-version = "0.0.0"
+version = "0.0.1.3"
 description = "Utility functions for quantitative analysis in science."
 authors = [{name = "Diogo Ferrari", email = "diogoferrari@gmail.com"}]
 maintainers = [{name = "Diogo Ferrari", email = "diogoferrari@gmail.com"}]
@@ -21,13 +21,11 @@ classifiers = [
 	    "Topic :: Scientific/Engineering"
 ]
 dependencies = [
-	 "Altair",
+	 "altair",
 	 "ghostscript",
-	 "itertools",
 	 "pandas",
 	 "plotnine",
 	 "polars",
-	 "textwrap",
 	 "tidypolars4sci",
 	 "typing",
 ]

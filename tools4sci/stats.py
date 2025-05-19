@@ -8,21 +8,21 @@ def sig_marks(pvalues=None, alpha_levels=None, output='indicators'):
 
     Inputs
     ------
-    pvalues : list of floats
-        A list of p-values. If None, return output='marks'
+        pvalues : list of floats
+            A list of p-values. If None, return output='marks'
 
-    alpha_levels: dict
-        A dictionary where keys are alpha levels (float) and values
-        are the corresponding significance indicators (str).
-        Default: {0.001: '***', 0.01: '**', 0.05: '*', 0.1: '+'}
+        alpha_levels: dict
+            A dictionary where keys are alpha levels (float) and values
+            are the corresponding significance indicators (str).
+            Default: {0.001: '***', 0.01: '**', 0.05: '*', 0.1: '+'}
 
-    output : str
-       If 'indicators', return a list of significance level
-           indicators corresponding to the p-values based on 'alpha_levels'.
-       If 'both', return a tuple ('alpha_levels', <indicators>)
-       If 'marks', return a string with the map of alpha-levels to
-           their marks
-       If 'marks_dict', return the dictionary 'alpha_levels'
+        output : str
+           If 'indicators', return a list of significance level
+               indicators corresponding to the p-values based on 'alpha_levels'.
+           If 'both', return a tuple ('alpha_levels', <indicators>)
+           If 'marks', return a string with the map of alpha-levels to
+               their marks
+           If 'marks_dict', return the dictionary 'alpha_levels'
 
     Returns
     -------

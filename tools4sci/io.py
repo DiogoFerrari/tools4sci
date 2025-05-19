@@ -5,8 +5,6 @@ import ghostscript
 from typing import Literal
 from textwrap import dedent
 
-
-
 __all__ = ['save_table',
            'save_figure']
 
@@ -17,10 +15,11 @@ def save_table(fn, tab, tab_latex=None, exts=["xlsx", 'csv', 'tex'],
     """
     Saves a given table in multiple file formats.
 
-    Parameters:
-    ----------
+    Inputs
+    ------
         fn : str, pathlib 
            The filename including path but *wihout extension* to save the table.
+           $3^3$
 
         tab : tibble
            The table to be saved.
@@ -42,6 +41,9 @@ def save_table(fn, tab, tab_latex=None, exts=["xlsx", 'csv', 'tex'],
         kws_csv : dict.
             Defaults to {"separator" : ';'}
             Keywords used in polars write_csv
+    Returns
+    -------
+        None
     """
     for ext in exts:
         base = os.path.basename(fn)
@@ -70,13 +72,14 @@ def __save_table_latex__(fn, tab_latex, kws_latex):
     with open(f"{fn}.tex", 'w+') as f:
         f.write(tab_latex)
 
-
 # figures 
 # -------
-def save_figure(fn, g, tab, exts=["pdf", 'eps', 'png'],
+def save_figure(fn, g, tab=None, exts=["pdf", 'eps', 'png'],
                 height=None, width=None, png_scale=3,
                 caption=None, label=None,
-                print_markup: Literal['latex', 'org'] = 'latex'
+                print_markup: Literal['latex', 'org'] = 'latex',
+                latex_env="figure*",
+                silently=False
                 ):
     assert (caption is None and label is None) |\
         (isinstance(caption, str) and isinstance(label, str)), \
@@ -86,31 +89,34 @@ def save_figure(fn, g, tab, exts=["pdf", 'eps', 'png'],
     base = os.path.basename(fn)
 
     for ext in exts:
-        print(f"Saving Figure {base}.{ext}...", end="")
+        if not silently:
+            print(f"Saving Figure {base}.{ext}...", end="")
         if ext!='eps':
             scale = png_scale if ext=='png' else 1
             g.save(f'{fn}.{ext}',scale_factor=scale)
         else:
             __save_figure_pdf_to_eps__(fn)      
-        print('done!')
+        if not silently:
+            print('done!')
 
-    save_table(fn, tab, exts = ['xlsx', 'csv'])
+    if tab is not None:
+        save_table(fn, tab, exts = ['xlsx', 'csv'])
 
     if caption and label:
-        if print_markup=="latex":
-            __save_figure_print_latex_cmd__(label, caption)
-        elif print_markup=="org":
+        if print_markup and print_markup=="latex":
+            __save_figure_print_latex_cmd__(label, caption, latex_env)
+        elif print_markup and print_markup=="org":
             __save_figure_print_org_cmd__(label, caption)
 
 
 
-def __save_figure_print_latex_cmd__(label, caption):
+def __save_figure_print_latex_cmd__(label, caption, latex_env):
     s = f"""
-    \\begin{{label*}}[th!]
+    \\begin{{{latex_env}}}[th!]
     \\centering
     \\includegraphics[width=1\\textwidth]{{./tables-and-figures/{label}.pdf}}
     \\caption{{\\label{{{label}}}{caption}}}
-    \\end{{label*}}
+    \\end{{{latex_env}}}
     """
     s = dedent(s.replace("%", "\\%"))
     print(s)

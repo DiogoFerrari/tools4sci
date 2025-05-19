@@ -25,11 +25,11 @@ def models2tab(models,
                sanitize_option='partial'
                ):
     """
-    sanitize_option : str, default=partial
-       If "full", remove all categorical variable names and leave only
-       the categories
-       If "partial", leave the categorical variable names and 
-       the categories
+    Inputs
+    ------
+        sanitize_option : str, default=partial
+           If "full", remove all categorical variable names and leave only the categories
+           If "partial", leave the categorical variable names and the categories
     """
 
     # final_columns will be a list of tuples: (column_name, result_dict, model_instance)
@@ -201,14 +201,6 @@ def __model2tab_to_latex__(res, kws_latex):
     return tabl
 
 def __models2tab_extract_model_results__(m):
-    """
-    Extract coefficients, standard errors, and p-values from a fitted model m.
-    
-    For multinomial models (MNLogit), returns a dictionary mapping each outcome
-    level (as in m.params.columns) to a dictionary mapping parameter name to
-    (estimate, se, pvalue). For non-multinomial models, returns a dictionary
-    mapping parameter name to (estimate, se, pvalue).
-    """
     # Check if this is a multinomial model.
     if hasattr(m, 'model') and m.model.__class__.__name__ == 'MNLogit':
         # In MNLogit, m.params is a DataFrame with index = parameter names
