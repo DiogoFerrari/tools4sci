@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tools4sci"
-version = "0.0.1.3"
+version = "0.0.1.4"
 description = "Utility functions for quantitative analysis in science."
 authors = [{name = "Diogo Ferrari", email = "diogoferrari@gmail.com"}]
 maintainers = [{name = "Diogo Ferrari", email = "diogoferrari@gmail.com"}]
@@ -28,6 +28,8 @@ dependencies = [
 	 "polars",
 	 "tidypolars4sci",
 	 "typing",
+	 "xlsxwriter",
+	 "vl-convert-python",
 ]
 
 [tool.setuptools.package-data]

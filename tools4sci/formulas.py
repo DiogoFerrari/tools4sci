@@ -26,8 +26,8 @@ def extract_variables(formula):
     
     d = {
         'formula' : formula,
-        'lhs': lhs,
-        'rhs': rhs,
+        'lhs': lhs.strip(),
+        'rhs': rhs.strip(),
         'variables':variables
          }
     return d
