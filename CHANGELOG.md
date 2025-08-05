@@ -1,4 +1,4 @@
-## [0.0.1.4]
+## [0.0.1.5]
 
 * Added cypher module with function to convert from R to Python
 

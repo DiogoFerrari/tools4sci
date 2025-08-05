@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tools4sci"
-version = "0.0.1.4"
+version = "0.0.1.5"
 description = "Utility functions for quantitative analysis in science."
 authors = [{name = "Diogo Ferrari", email = "diogoferrari@gmail.com"}]
 maintainers = [{name = "Diogo Ferrari", email = "diogoferrari@gmail.com"}]
