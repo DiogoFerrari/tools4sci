@@ -13,21 +13,27 @@ def extract_variables(formula):
 
     Returns:
     -------
-        variables (set): A set of unique variable names.
+        dict with lhs, rhs, interactions, and terms
     """
-    # Remove transformation functions like log(), C(), etc.
-    cleaned_formula = re.sub(r'[a-zA-Z_]+\((.*?)\)', r'\1', formula)
+    lhs, rhs = formula.split('~')
+    lhs = lhs.strip()
+    rhs = rhs.strip()
+
+    # collect terms in the rhs
+    all_terms = []
+    terms = re.split(r'\s*\+\s*', rhs)
+    for term in terms:
+        # Split on '*' to get interactions
+        interactions = re.split(r'\s*\*\s*', term)
+        all_terms.extend(interactions)
+    all_terms = list(set(term.strip() for term in all_terms if term.strip()))
     
-    # Split the formula into LHS and RHS
-    lhs, rhs = cleaned_formula.split('~')
+    # collect interactions
+    interactions = []
+    terms = rhs.split('+')
+    for term in terms:
+        if '*' in term:
+            interactions.append(term.strip())
     
-    # Extract all variable names (words) while ignoring operators like *, +, ~, etc.
-    variables = set(re.findall(r'\b\w+\b', lhs + " " + rhs))
-    
-    d = {
-        'formula' : formula,
-        'lhs': lhs.strip(),
-        'rhs': rhs.strip(),
-        'variables':variables
-         }
-    return d
+    return {'lhs':lhs, 'rhs':rhs,
+            "interactions":interactions, 'terms':all_terms}

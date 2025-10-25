@@ -108,8 +108,6 @@ def save_figure(fn, g, tab=None, exts=["pdf", 'eps', 'png'],
         elif print_markup and print_markup=="org":
             __save_figure_print_org_cmd__(label, caption)
 
-
-
 def __save_figure_print_latex_cmd__(label, caption, latex_env):
     s = f"""
     \\begin{{{latex_env}}}[th!]

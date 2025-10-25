@@ -5,6 +5,9 @@ from .stats import sig_marks
 
 __all__ = ['models2tab']
 
+def to_latex(tibble, *args, **kws):
+    return tibble.to_latex(*args, **kws)
+
 def models2tab(models,
                fit_stats=["N. Obs.",
                           "R2 (adj)",
@@ -17,7 +20,7 @@ def models2tab(models,
                show_stars=True,
                digits=4,
                latex = False,
-               kws_latex = {},
+               kws_latex = None,
                kws_multinomial={},
                covar_labels = None,
                interaction_char = {":":" x "},
@@ -31,6 +34,8 @@ def models2tab(models,
            If "full", remove all categorical variable names and leave only the categories
            If "partial", leave the categorical variable names and the categories
     """
+    assert isinstance(models, list), "'models' must be a list of fitted models"
+    kws_latex = kws_latex or {}
 
     # final_columns will be a list of tuples: (column_name, result_dict, model_instance)
     final_columns = []
@@ -179,11 +184,10 @@ def models2tab(models,
     if interaction_char:
         tab = tab.replace({'Covars':interaction_char}, regex=True)
 
-
     res = tab.rename({"Covars":''})
     if latex or kws_latex:
         tabl = __model2tab_to_latex__(res, kws_latex)
-        res = (res, tabl)
+        res = tabl
 
     return res
 
