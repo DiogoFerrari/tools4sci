@@ -1,7 +1,6 @@
 import os
 import altair as alt
 from plotnine import ggplot
-import ghostscript
 from typing import Literal
 from textwrap import dedent
 
@@ -51,9 +50,9 @@ def save_table(fn, tab, tab_latex=None, exts=["xlsx", 'csv', 'tex'],
 
         match ext:
             case 'xlsx':
-                tab.to_excel(workbook=f"{fn}.xlsx", **kws_xlsx)
+                tab.to_excel(**{"silently": True, **kws_xlsx, "fn": fn, "ext": "xlsx"})
             case 'csv':
-                tab.to_csv(file=f"{fn}.csv", **kws_csv)
+                tab.to_csv(**{"silently": True, **kws_csv, "fn": fn, "ext": "csv"})
             case 'tex':
                 __save_table_latex__(fn, tab_latex, kws_latex)
         print('done!')
@@ -129,6 +128,7 @@ def __save_figure_print_org_cmd__(label, caption):
     print(s)
 
 def __save_figure_pdf_to_eps__(fn):
+    import ghostscript
 
     fn_pdf = f"{fn}.pdf"
     fn_eps = f"{fn}.eps"
@@ -153,4 +153,3 @@ def __save_figure_pdf_to_eps__(fn):
 
     if remove_pdf:
         os.remove(fn_pdf)
-

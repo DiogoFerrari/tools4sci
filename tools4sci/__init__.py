@@ -1,9 +1,10 @@
 try:
     from importlib.metadata import version
     __version__ = version("tools4sci")
-except:
+except Exception:
     __version__ = ""
 
+from . import formulas, io, report, simulate, stats
 from .io import *
 from .formulas import *
 from .simulate import *
@@ -17,5 +18,4 @@ __all__ = (
     stats.__all__ +
     report.__all__
 )
-
 
