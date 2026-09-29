@@ -2,6 +2,7 @@ import pandas as pd
 import re
 import tidypolars4sci as tp
 from .stats import sig_marks
+import numpy as np
 
 __all__ = ['models2tab']
 
@@ -25,16 +26,60 @@ def models2tab(models,
                covar_labels = None,
                interaction_char = {":":" x "},
                sanitize = True,
-               sanitize_option='partial'
+               sanitize_option='partial',
+               linebreak=True
                ):
+    """Create a formatted coefficient summary table for fitted models.
+
+    Parameters
+    ----------
+    models : list or dict
+        Fitted models to include in the table. A list is labeled ``Model 1``,
+        ``Model 2``, and so on. When a dictionary is supplied, its keys are
+        used as the table's column names.
+    fit_stats : list of str, optional
+        Summary statistics to append below the coefficient rows, in display
+        order. Available values are ``"N. Obs."``, ``"R2 (adj)"``,
+        ``"R2 (pseudo)"``, ``"BIC"``, ``"AIC"``, and ``"Std. Error"``.
+    show_se : bool, default=True
+        Whether to show standard errors in parentheses below coefficients.
+    show_ci : bool, default=False
+        Whether to show confidence intervals below coefficients. Takes
+        precedence over ``show_se`` when both are True.
+    show_stars : bool, default=True
+        Whether to append significance stars to coefficient estimates.
+    linebreak : bool, default=True
+        Whether to display estimates and their standard errors or confidence
+        intervals on separate rows. If False, display them together in a
+        single cell.
+    digits : int, default=4
+        Number of decimal places used to display estimates and fit statistics.
+    latex : bool, default=False
+        Whether to return the table as LaTeX rather than a tibble.
+    kws_latex : dict, optional
+        Keyword arguments passed to the table's ``to_latex`` method. Supplying
+        this argument also produces LaTeX output.
+    kws_multinomial : dict, default={}
+        Options for multinomial models. Set ``"y_labels"`` to outcome labels
+        indexed by category number.
+    covar_labels : dict, optional
+        Regular-expression replacements for coefficient names.
+    interaction_char : dict, default={":": " x "}
+        Regular-expression replacements for interaction separators in
+        coefficient names.
+    sanitize : bool, default=True
+        Whether to simplify categorical-variable names.
+    sanitize_option : str, default="partial"
+        If ``"full"``, remove categorical variable names and retain only their
+        categories. If ``"partial"``, retain both variable names and categories.
+
+    Returns
+    -------
+    tidypolars4sci.tibble or str
+        The formatted summary table, or its LaTeX representation when
+        ``latex`` or ``kws_latex`` is supplied.
     """
-    Inputs
-    ------
-        sanitize_option : str, default=partial
-           If "full", remove all categorical variable names and leave only the categories
-           If "partial", leave the categorical variable names and the categories
-    """
-    assert isinstance(models, list), "'models' must be a list of fitted models"
+    assert isinstance(models, (list, dict)), "'models' must be a list or dictionary of fitted models"
     kws_latex = kws_latex or {}
 
     # final_columns will be a list of tuples: (column_name, result_dict, model_instance)
@@ -48,6 +93,7 @@ def models2tab(models,
     for i, (model_name, m) in enumerate(models.items()):
         # model_name = getattr(m, "model_name", f"Model {i+1}")
         res = __models2tab_extract_model_results__(m)
+        ci_res = __models2tab_extract_model_confidence_intervals__(m) if show_ci else None
         
         # Check if this model is multinomial (MNLogit)
         if hasattr(m, 'model') and m.model.__class__.__name__ == 'MNLogit':
@@ -64,7 +110,9 @@ def models2tab(models,
                 else:
                     y_name = outcome+2
                 col_name = f"{model_name} {y_name}"
-                final_columns.append((col_name, res[outcome], m))
+                final_columns.append((col_name, res[outcome],
+                                      ci_res[outcome] if ci_res is not None else None,
+                                      m))
             # Update ordered_params using the parameter names (the rows of m.params)
             for param in m.params.index:
                 if param not in ordered_params:
@@ -72,20 +120,20 @@ def models2tab(models,
         else:
             # Non-multinomial model: res is a dict mapping parameter name to (est, se, pvalue)
             col_name = model_name
-            final_columns.append((col_name, res, m))
+            final_columns.append((col_name, res, ci_res, m))
             for param in res.keys():
                 if param not in ordered_params:
                     ordered_params.append(param)
     
     # Build the coefficient table.
     coef_table = pd.DataFrame(index=ordered_params,
-                              columns=[col_name for (col_name, _, _) in final_columns])
+                              columns=[col_name for (col_name, _, _, _) in final_columns])
     se_table = pd.DataFrame(index=ordered_params,
-                            columns=[col_name for (col_name, _, _) in final_columns])
+                            columns=[col_name for (col_name, _, _, _) in final_columns])
     ci_table = pd.DataFrame(index=ordered_params,
-                            columns=[col_name for (col_name, _, _) in final_columns])
+                            columns=[col_name for (col_name, _, _, _) in final_columns])
     
-    for col_name, res, m in final_columns:
+    for col_name, res, ci_res, m in final_columns:
         for param in ordered_params:
             if param in res:
                 est, se, p_val = res[param]
@@ -93,19 +141,28 @@ def models2tab(models,
                 # coef_table.loc[param, col_name] = f"{est:.{digits}f}{stars}\n({se:.{digits}f})"
                 coef_table.loc[param, col_name] = f"{est:.{digits}f}{stars}"
                 se_table.loc[param, col_name] = f"({se:.{digits}f})"
+                if ci_res is not None:
+                    lower, upper = ci_res[param]
+                    ci_table.loc[param, col_name] = f"({lower:.{digits}f}, {upper:.{digits}f})"
+                if not linebreak:
+                    if show_ci:
+                        coef_table.loc[param, col_name] += f" {ci_table.loc[param, col_name]}"
+                    elif show_se:
+                        coef_table.loc[param, col_name] += f" {se_table.loc[param, col_name]}"
             else:
                 coef_table.loc[param, col_name] = ""
                 se_table.loc[param, col_name] = ""
+                ci_table.loc[param, col_name] = ""
     # print(coef_table )
     # print(se_table )
-    if show_se:
-        coef_table = __models2tab_combine_tables__(coef_table, se_table)
-    elif show_ci:
+    if linebreak and show_ci:
         coef_table = __models2tab_combine_tables__(coef_table, ci_table)
+    elif linebreak and show_se:
+        coef_table = __models2tab_combine_tables__(coef_table, se_table)
 
     # Build the summary statistics for each column.
     stats_dict = {}
-    for col_name, res, m in final_columns:
+    for col_name, res, ci_res, m in final_columns:
         # Observations
         n_obs = int(m.nobs) if hasattr(m, "nobs") else ""
         
@@ -236,6 +293,28 @@ def __models2tab_extract_model_results__(m):
             # Most common case (e.g. OLS, Logit): m.params is a Series.
             return {param: (m.params[param], m.bse[param], m.pvalues[param])
                     for param in m.params.index}
+
+def __models2tab_extract_model_confidence_intervals__(m):
+    intervals = np.asarray(m.conf_int())
+
+    if hasattr(m, 'model') and m.model.__class__.__name__ == 'MNLogit':
+        n_terms = len(m.params.index)
+        n_outcomes = len(m.params.columns)
+        intervals = intervals.reshape(n_outcomes, n_terms, 2)
+        return {
+            outcome: {
+                param: tuple(intervals[j, i])
+                for i, param in enumerate(m.params.index)
+            }
+            for j, outcome in enumerate(m.params.columns)
+        }
+
+    if isinstance(m.params, pd.DataFrame):
+        params = [f"{var} ({label})" for var, label in m.params.stack().index]
+    else:
+        params = list(m.params.index)
+    intervals = intervals.reshape(len(params), 2)
+    return {param: tuple(interval) for param, interval in zip(params, intervals)}
 
 def __models2tab_sanitize_string__(s, option):
     # If "[T." is not found, return the original string.
