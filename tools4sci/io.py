@@ -178,12 +178,16 @@ def __save_figure_print_latex_cmd__(label, caption, latex_env):
 
 def __save_figure_print_org_cmd__(label, caption):
     s = f"""
+    #+ATTR_ORG: :width 200/250/300/400/500/600"
+    #+ATTR_LATEX: :width 1\\textwidth :placement [ht!] "
     #+Name: {label}
     #+CAPTION: {caption}
     [[./tables-and-figures/{label}.pdf]]
     """
     s = dedent(s.replace("%", "\\%"))
     print(s)
+
+    
 
 def __save_figure_pdf_to_eps__(fn):
     import ghostscript
