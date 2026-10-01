@@ -1,4 +1,5 @@
 import os
+import re
 import altair as alt
 from plotnine import ggplot
 from typing import Literal
@@ -10,7 +11,9 @@ __all__ = ['save_table',
 # tables 
 # ------
 def save_table(fn, tab, tab_latex=None, exts=["xlsx", 'csv', 'tex'],
-               kws_latex={}, kws_xlsx={}, kws_csv={"separator":';'}):
+               kws_latex={}, kws_xlsx={}, kws_csv={"separator":';'},
+               caption=None, label=None,
+               print_markup: Literal['latex', 'org'] = 'org'):
     """
     Saves a given table in multiple file formats.
 
@@ -40,10 +43,31 @@ def save_table(fn, tab, tab_latex=None, exts=["xlsx", 'csv', 'tex'],
         kws_csv : dict.
             Defaults to {"separator" : ';'}
             Keywords used in polars write_csv
+
+        caption, label : str, optional.
+            Print Org markup that includes the saved LaTeX table and assigns
+            it a caption and cross-reference label. Either value may be
+            supplied on its own. Missing values are inferred from tab_latex,
+            then from the supplied value or filename.
+
+        print_markup : {'latex', 'org'}, optional. Defaults to 'org'.
+            Print table markup automatically. Pass False to suppress automatic
+            output; providing caption or label still requests markup.
     Returns
     -------
         None
     """
+    assert caption is None or isinstance(caption, str), \
+        "'caption' must be None or a string"
+    assert label is None or isinstance(label, str), \
+        "'label' must be None or a string"
+
+    print_markup_requested = bool(print_markup) or \
+        caption is not None or label is not None
+    label, caption = __infer_table_markup__(
+        fn, tab_latex, label=label, caption=caption
+    )
+
     for ext in exts:
         base = os.path.basename(fn)
         print(f'Saving table {base}.{ext}...', end="")
@@ -56,6 +80,9 @@ def save_table(fn, tab, tab_latex=None, exts=["xlsx", 'csv', 'tex'],
             case 'tex':
                 __save_table_latex__(fn, tab_latex, kws_latex)
         print('done!')
+
+    if print_markup_requested:
+        __save_table_print_org_cmd__(fn, label, caption)
 
 def __save_table_latex__(fn, tab_latex, kws_latex):
     assert tab_latex is not None or kws_latex, """
@@ -70,6 +97,37 @@ def __save_table_latex__(fn, tab_latex, kws_latex):
 
     with open(f"{fn}.tex", 'w+') as f:
         f.write(tab_latex)
+
+def __infer_table_markup__(fn, tab_latex, label=None, caption=None):
+    filename = os.path.basename(fn)
+
+    if tab_latex is not None:
+        if label is None:
+            match = re.search(r"\\label\s*\{([^}]*)\}", tab_latex)
+            if match:
+                label = match.group(1)
+        if caption is None:
+            match = re.search(
+                r"\\caption(?:\[[^]]*\])?\s*\{([^}]*)\}", tab_latex
+            )
+            if match:
+                caption = match.group(1)
+
+    label = caption if label is None and caption is not None else label
+    label = filename if label is None else label
+    caption = label if caption is None else caption
+    return label, caption
+
+def __save_table_print_org_cmd__(fn, label, caption):
+    filename = os.path.basename(fn)
+
+    s = f"""
+    #+Name: {label}
+    #+CAPTION: {caption}
+    \\input{{./tables-and-figures/{filename}.tex}}
+    """
+    s = dedent(s.replace("%", "\\%"))
+    print(s)
 
 # figures 
 # -------

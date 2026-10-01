@@ -3,8 +3,9 @@ import re
 import tidypolars4sci as tp
 from .stats import sig_marks
 import numpy as np
+import polars as pl
 
-__all__ = ['models2tab']
+__all__ = ['models2tab', 'summary', 'summary_tidy']
 
 def to_latex(tibble, *args, **kws):
     return tibble.to_latex(*args, **kws)
@@ -339,3 +340,102 @@ def __models2tab_combine_tables__(tab1, tab2):
                    .sort_values(['__order_1__', '__order_2__'])\
                    .drop(['__order_1__', '__order_2__'], axis=1)
     return tab1
+
+summary = models2tab
+
+def summary_tidy(models, alpha=0.05):
+    """Extract unrounded, tidy coefficient results from fitted statsmodels models.
+
+    Parameters
+    ----------
+    models : fitted model, list of fitted models, or dict
+        A single result object, a collection numbered ``Model 1``, etc., or a
+        mapping from model names to fitted results.
+    alpha : float, default 0.05
+        Significance level for the confidence intervals (0.05 gives 95% CIs).
+        Intervals and statistics use each fitted model's covariance estimator
+        and inference distribution, including robust or clustered fits.
+
+    Returns
+    -------
+    tidypolars4sci.tibble
+        One row per coefficient per model and, for multivariate results, per
+        outcome. Columns are ``model``, ``outcome``, ``term``, ``estimate``,
+        ``std_error``, ``statistic`` (t or z), ``pvalue``, ``ci_low``,
+        ``ci_high``, and ``nobs``. Outcome is null for single-equation models;
+        MNLogit outcomes use the fitted model's non-reference category labels.
+        Confidence limits occupy separate numeric columns for further analysis.
+        Original coefficient names and input model order are preserved.
+
+    Examples
+    --------
+    >>> summary_tidy(fitted_model)
+    >>> summary_tidy({"OLS": ols_result, "Logit": logit_result}, alpha=0.01)
+    """
+
+    if not 0 < alpha < 1:
+        raise ValueError("alpha must be between 0 and 1")
+    if isinstance(models, dict):
+        named_models = models.items()
+    elif isinstance(models, (list, tuple)):
+        named_models = [(f"Model {i + 1}", m) for i, m in enumerate(models)]
+    else:
+        named_models = [("Model 1", models)]
+
+    rows = []
+    for model_name, m in named_models:
+        if not all(hasattr(m, attr) for attr in
+                   ("params", "bse", "tvalues", "pvalues", "conf_int")):
+            raise TypeError(f"{model_name!r} must be a fitted statsmodels result")
+        params = np.asarray(m.params)
+        if params.ndim not in (1, 2):
+            raise ValueError("Model parameters must have one or two dimensions")
+        n_terms = params.shape[0]
+        n_outcomes = params.shape[1] if params.ndim == 2 else 1
+        if isinstance(m.params, (pd.Series, pd.DataFrame)):
+            terms = list(m.params.index)
+        else:
+            terms = list(getattr(m.model, "exog_names", []))
+            if len(terms) != n_terms:
+                terms = [f"x{i + 1}" for i in range(n_terms)]
+
+        outcomes = [None]
+        if params.ndim == 2:
+            if m.model.__class__.__name__ == "MNLogit":
+                category_names = getattr(m.model, "_ynames_map", {})
+                outcomes = [str(category_names.get(i + 1, i + 1))
+                            for i in range(n_outcomes)]
+            elif isinstance(m.params, pd.DataFrame):
+                outcomes = [str(value) for value in m.params.columns]
+            else:
+                outcomes = [str(i + 1) for i in range(n_outcomes)]
+
+        # statsmodels orders multi-equation confidence intervals by outcome,
+        # then term, for both its pandas and ndarray result representations.
+        intervals = np.asarray(m.conf_int(alpha=alpha)).reshape(
+            n_outcomes, n_terms, 2)
+        estimates, errors, statistics, pvalues = [
+            np.asarray(values).reshape(n_terms, n_outcomes)
+            for values in (m.params, m.bse, m.tvalues, m.pvalues)
+        ]
+        for j, outcome in enumerate(outcomes):
+            for i, term in enumerate(terms):
+                rows.append({
+                    "model": str(model_name),
+                    "outcome": outcome,
+                    "term": str(term),
+                    "estimate": float(estimates[i, j]),
+                    "std_error": float(errors[i, j]),
+                    "statistic": float(statistics[i, j]),
+                    "pvalue": float(pvalues[i, j]),
+                    "ci_low": float(intervals[j, i, 0]),
+                    "ci_high": float(intervals[j, i, 1]),
+                    "nobs": float(m.nobs) if hasattr(m, "nobs") else None,
+                })
+
+    schema = {"model": pl.String, "outcome": pl.String, "term": pl.String,
+              "estimate": pl.Float64, "std_error": pl.Float64,
+              "statistic": pl.Float64, "pvalue": pl.Float64,
+              "ci_low": pl.Float64, "ci_high": pl.Float64,
+              "nobs": pl.Float64}
+    return tp.from_polars(pl.DataFrame(rows, schema=schema))
